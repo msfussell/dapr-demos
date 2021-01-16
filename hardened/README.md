@@ -32,7 +32,7 @@ The sample assumes that Zipkin is deployed into your cluster in the `dapr-monito
 kubectl apply -f deployment/monitoring
 ```
 
-### Setup Redis state store
+### Setup Redis state
 Also, to illustrate Dapr component scoping (e.g. PubSub and State), this demo uses in-cluster Redis deployment (see [Redis setup](https://docs.dapr.io/getting-started/configure-state-pubsub/)). To showcase the declarative access control for applications over secrets this demo uses `redis-secret` defined in the `hardened` namespace.
 
 The sample assumes that Redis is deployed to your cluster into `redis` namespace.
@@ -97,7 +97,8 @@ app1-6df587fb45-k46sz   2/2     Running   0          40s
 app2-685fd94f69-5vkwl   2/2     Running   0          40s
 app3-6d57778cbd-mxn2k   2/2     Running   0          40s
 ```
-If there are errors see how to [view the application logs](logging)
+If there are errors see how to [view the application logs](#logging)
+
 ## Demo 
 
 The Dapr API exposed on the cluster ingress is protected with [token authentication](https://github.com/dapr/docs/tree/master/howto/enable-dapr-api-token-based-authentication#enable-dapr-apis-token-based-authentication). Start by exporting that token from the cluster secret to allow for API invocation in this demo.

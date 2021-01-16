@@ -44,6 +44,8 @@ metadata:
 spec:
   tracing:
     samplingRate: "1"
+    zipkin:
+      endpointAddress: "http://zipkin.dapr-monitoring.svc.cluster.local:9411/api/v2/spans"
   secrets:
     scopes:
       - storeName: kubernetes
@@ -55,7 +57,7 @@ spec:
     - appId: nginx-ingress
       defaultAction: deny 
       trustDomain: "public"
-      namespace: "nginx" # where NGINX is installed 
+      namespace: "default" # where NGINX is installed 
       operations:
       - name: /ping
         httpVerb: ["POST"] 

@@ -1,4 +1,4 @@
-CLUSTER_NAME     ?=demo
+CLUSTER_NAME     ?=mfusselldemo10
 CLUSTER_VERSION  ?=1.18.10
 NODE_COUNT       ?=3
 NODE_TYPE        ?=Standard_D4_v2
@@ -29,7 +29,8 @@ cluster: ## Create AKS cluster
 		--name $(CLUSTER_NAME) \
 		--node-count $(NODE_COUNT) \
 		--node-vm-size $(NODE_TYPE) \
-		--kubernetes-version $(CLUSTER_VERSION)
+		--kubernetes-version $(CLUSTER_VERSION) \
+		-g mfussell
 	az aks get-credentials --name $(CLUSTER_NAME)
 
 .PHONY: cluster-down

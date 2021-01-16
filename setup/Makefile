@@ -1,6 +1,6 @@
-DOMAIN           ?=example.com
-CLUSTER_NAME     ?=demo
-DAPR_RELEASE     ?=1.0.0-rc.1
+DOMAIN           ?=mfussell.com
+CLUSTER_NAME     ?=mfusselldemo10
+DAPR_RELEASE     ?=1.0.0-rc.2
 DAPR_HA          ?=true
 DAPR_LOG_AS_JSON ?=true
 

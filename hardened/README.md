@@ -1,6 +1,8 @@
 # Hardening Dapr app demo 
 
-In addition to support for Kubernetes namespace isolation and Role-Based Access Control (RBAC) authorization, Dapr also provides additional, more granular, controls to harden applications deployment in Kubernetes. Some security related features, like in-transit encryption for all sidecar-to-sidecar communication using mutual TLS, are enabled by default. Others, like middleware to apply [Open Policy Agent](https://www.openpolicyagent.org/) (OPA) policies on incoming requests, require opt-in. This demo will overview: 
+In addition to support for Kubernetes namespace isolation and Role-Based Access Control (RBAC) authorization, Dapr also provides additional, more granular, controls to harden applications deployment in Kubernetes. Some security related features, like in-transit encryption for all sidecar-to-sidecar communication using mutual TLS, are enabled by default. Others, like middleware to apply [Open Policy Agent](https://www.openpolicyagent.org/) (OPA) policies on incoming requests, require opt-in. 
+
+This demo overviews: 
 
 * Cross-namespace service invocation with logical domain groups trust relationship management
 * Secure microservice communication using mTLS and [SPIFFE](https://spiffe.io/) identity verification 
@@ -23,8 +25,17 @@ In Kubernetes, [namespaces](https://kubernetes.io/docs/concepts/overview/working
 ```shell
 kubectl apply -f deployment/namespace
 ```
+### Setup Zipkin monitoring
+The sample assumes that Zipkin is deployed into your cluster in the `dapr-monitoring` namespace.
 
-Also, to illustrate Dapr component scoping (e.g. PubSub and State), this demo will use in-cluster Redis deployment (see [Redis setup](../setup#usage)). To showcase the declarative access control for applications over secrets this demo will use `redis-secret` defined in the `hardened` namespace.
+```shell
+kubectl apply -f deployment/monitoring
+```
+
+### Setup Redis state store
+Also, to illustrate Dapr component scoping (e.g. PubSub and State), this demo uses in-cluster Redis deployment (see [Redis setup](https://docs.dapr.io/getting-started/configure-state-pubsub/)). To showcase the declarative access control for applications over secrets this demo uses `redis-secret` defined in the `hardened` namespace.
+
+The sample assumes that Redis is deployed to your cluster into `redis` namespace.
 
 ```shell
 kubectl create secret generic redis-secret \
@@ -32,9 +43,10 @@ kubectl create secret generic redis-secret \
     -n hardened
 ```
 
-> If this is Redis on your cluster you can look it up using `export REDIS_PASS=$(kubectl get secret -n redis redis -o jsonpath="{.data.redis-password}" | base64 --decode)` and define the `REDIS_PASS` environment variable with that secret. 
+> If Redis is on your cluster you can look it up using `export REDIS_PASSWORD=$(kubectl get secret -n redis redis -o jsonpath="{.data.redis-password}" | base64 --decode)` and define the `REDIS_PASSWORD` environment variable with that secret. 
 
-Finally, create one more `demo` secret to illustrate later how Dapr controls application's access to secrets.
+### Setup demo secret
+Finally, create a `demo` secret to illustrate later how Dapr controls application's access to secrets.
 
 ```shell
 kubectl create secret generic demo-secret --from-literal=demo="demo" -n hardened 
@@ -42,7 +54,7 @@ kubectl create secret generic demo-secret --from-literal=demo="demo" -n hardened
 
 ## Deploy
 
-With the namespace configured and the Redis password created, it's time to deploy:
+With the namespace configured and the Redis password created, it's time to deploy the application, components and configuration :
 
 * [app1.yaml](./deployment/hardened/app1.yaml), [app2.yaml](./deployment/hardened/app1.yaml), and [app2.yaml](./deployment/hardened/app1.yaml) are the Kubernetes deployments with their Dapr configuration.
 * [pubsub.yaml](./deployment/hardened/pubsub.yaml) and [state.yaml](./deployment/hardened/state.yaml) are the configuration files for PubSub and State components using Redis
@@ -85,7 +97,7 @@ app1-6df587fb45-k46sz   2/2     Running   0          40s
 app2-685fd94f69-5vkwl   2/2     Running   0          40s
 app3-6d57778cbd-mxn2k   2/2     Running   0          40s
 ```
-
+If there are errors see how to [view the application logs](logging)
 ## Demo 
 
 The Dapr API exposed on the cluster ingress is protected with [token authentication](https://github.com/dapr/docs/tree/master/howto/enable-dapr-api-token-based-authentication#enable-dapr-apis-token-based-authentication). Start by exporting that token from the cluster secret to allow for API invocation in this demo.
@@ -119,9 +131,9 @@ accessControl:
       action: allow
 ```
 
-To demo this now, invoke the `ping` method on `app1` in the `hardened` namespace using the Dapr API exposed on the NGNX ingress.
+To demo this, invoke the `ping` method on `app1` in the `hardened` namespace using the Dapr API exposed on the NGINX ingress.
 
-> The [Dapr cluster setup](../setup#dapr-cluster-setup) includes custom domain and TLS certificate support. This demo users `api.demo.dapr.team` domain and a wildcard certificates for al (`*`) subdomains.
+> The [Dapr cluster setup](../setup#dapr-cluster-setup) includes custom domain and TLS certificate support. This demo users `api.demo.dapr.team` domain and a wildcard certificates for al (`*`) subdomains. Replace this command with your domain name.
 
 ```shell
 curl -i -d '{ "message": "hello" }' \
@@ -145,7 +157,7 @@ strict-transport-security: max-age=15724800; includeSubDomains
 { "on": 1603627556200126373, "count": 8 }
 ```
 
-To demo the active access policy, try also to invoke the `counter` method on `app2` in the `hardened` namespace.
+To demo the active access policy, try to invoke the `counter` method on `app2` in the `hardened` namespace.
 
 ```shell
 curl -i -d '{ "on": 1603627556200126373, "count": 2 }' \
@@ -163,7 +175,7 @@ That invocation will result in an error. The response will include `PermissionDe
 }
 ```
 
-The access control defined above applies also to in-cluster invocation ([app2.yaml](./deployment/hardened/app2.yaml)). Where the additional `trustDomain` setting on `app2` configuration is used to only allow access to invoke the `/counter` method when the calling app is `app1`:
+The access control defined above also applies to in-cluster invocation ([app2.yaml](./deployment/hardened/app2.yaml)). Where the additional `trustDomain` setting on `app2` configuration is used to only allow access to invoke the `/counter` method when the calling app is `app1`:
 
 ```yaml
 policies:
@@ -177,7 +189,7 @@ policies:
       action: allow
 ```
 
-To demo this, forward local port to any other Dapr sidecar besides `app1` in that cluster.
+To demo this, forward a local port to any other Dapr sidecar besides `app1` in that cluster.
 
 ```shell
 kubectl port-forward deployment/app2 3500 -n hardened
@@ -191,12 +203,11 @@ curl -i -d '{ "message": "hello" }' \
      http://localhost:3500/v1.0/invoke/app1/method/ping
 ```
 
-> In this configuration, all invocations that are not explicitly permitted in Dapr access policy will be denied!
+> In this configuration, all invocations that are not explicitly permitted in Dapr access policy are denied!
 
 ### Components
 
-
-Just like in case of invocation, access to components in Dapr is also driven by configuration. The [state store](./deployment/hardened/state.yaml) component in this demo is scoped to only be accessible by `app2`:
+Just like service invocation, access to components in Dapr is driven by configuration. The [state store](./deployment/hardened/state.yaml) component in this demo is scoped to only be accessible by `app2`:
 
 ```yaml
 scopes:
@@ -216,7 +227,7 @@ The topic access of the PubSub component is further defined by the `publishingSc
   value: "app3=messages"
 ```
 
-To demo this, while still forwarding local port to the `app2` pod, try publish to any other topic besides `messages`.
+To demo this, while still forwarding local port to the `app2` pod, try to publish to any other topic besides `messages`.
 
 ```shell
 curl -i -d '{ "message": "test" }' \
@@ -224,7 +235,7 @@ curl -i -d '{ "message": "test" }' \
      http://localhost:3500/v1.0/publish/pubsub/test
 ```
 
-The above publish will result in error:
+The above publish results in error:
 
 ```json
 {
@@ -233,7 +244,7 @@ The above publish will result in error:
 }
 ```
 
-You can also try to subscribe to the `messages` topic or even forward port to `app3` and try to publish to the valid topic there, and still receive the same error, because that application is only allowed to subscribe to the `messages` topic, not publish to it.
+You can also try to subscribe to the `messages` topic, forward port to `app3` or try to publish to the valid topic, and will receive the same error, because that application is only allowed to subscribe to the `messages` topic, not publish to it.
 
 ### Secrets 
 
@@ -247,19 +258,19 @@ secrets:
       allowedSecrets: ["redis-secret"]
 ```        
 
-To demo this, while still forwarding local port to the `app2` pod, and access the `redis-secret`.
+To demo this, while still forwarding local port to the `app2` pod, access the `redis-secret` which will be successful.
 
 ```shell
 curl -i "http://localhost:3500/v1.0/secrets/kubernetes/redis-secret?metadata.namespace=hardened"
 ```
 
-Now, try access the other secret we created in the `hardened` namespace during setup: `demo-secret`.
+Now, try access the other secret we created in the `hardened` namespace during setup called `demo-secret`.
 
 ```shell
 curl -i "http://localhost:3500/v1.0/secrets/kubernetes/demo-secret?metadata.namespace=hardened"
 ```
 
-The above query will result in `403 Forbidden` as the `demo-secret` secret is not listed in the `allowedSecrets` list and the `defaultAccess` is set to `deny`.
+This query results in `403 Forbidden` as the `demo-secret` secret is not listed in the `allowedSecrets` list and the `defaultAccess` is set to `deny`.
 
 ```json
 {
@@ -270,7 +281,7 @@ The above query will result in `403 Forbidden` as the `demo-secret` secret is no
 
 ## Tracing 
 
-Start by generating some requests:
+Start by generating some requests either with a script or sending several messages from the command prompt.
 
 ```shell
 for i in {1..100}; do \
@@ -285,12 +296,14 @@ done
 Then forward the Zipkin port locally:
 
 ```shell
-kubectl port-forward svc/zipkin 9411 -n dapr-monitoring
+kubectl port-forward svc/zipkin 9412:9411 -n dapr-monitoring
 ```
+> Note: If you are using a machine with Dapr installed locally, port 9411 is already taken by the Zipkin Docker container deployed during `dapr init`. Hence choosing port 9412 avoids this potential port clash. 
 
 And navigate to the Zipkin UI to review traces 
 
-http://localhost:9411/
+http://localhost:9412/
+
 
 ![](img/trace.png)
 
@@ -304,6 +317,8 @@ To view logs from either the app container (`app`) or Dapr (`daprd`) use the lab
 
 ```shell
 kubectl logs -l app=app1 -c daprd -n hardened
+
+kubectl logs -l app=app1 -c app -n hardened
 ```
 
 > Because this demo set Dapr logs to be output as JSON you can use [jq](https://stedolan.github.io/jq/) or similar to query the logs 

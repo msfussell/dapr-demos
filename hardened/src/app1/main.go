@@ -54,7 +54,7 @@ func handler(ctx context.Context, in *common.InvocationEvent) (out *common.Conte
 
 	m := &dapr.DataContent{ContentType: in.ContentType, Data: in.Data}
 
-	data, err := client.InvokeServiceWithContent(ctx, targetServiceName, targetMethodName, m)
+	data, err := client.InvokeMethodWithContent(ctx, targetServiceName, targetMethodName, "post", m)
 	if err != nil {
 		logger.Printf("%s %s/%s: %v", invocationError, targetServiceName, targetMethodName, err)
 		return nil, errors.Wrapf(err, "%s %s/%s", invocationError, targetServiceName, targetMethodName)

@@ -1,6 +1,6 @@
 DOMAIN           ?=mfussell.com
-CLUSTER_NAME     ?=mfusselldemo10
-DAPR_RELEASE     ?=1.0.0-rc.2
+CLUSTER_NAME     ?=mfussellk8
+DAPR_RELEASE     ?=1.4.1
 DAPR_HA          ?=true
 DAPR_LOG_AS_JSON ?=true
 
@@ -86,7 +86,7 @@ observe-install: ## Install observability stack
 	kubectl rollout status deployment/kibana-kibana -n dapr-monitoring
 	
 .PHONY: config
-config: ports ## Configure Dapr after install
+## config: ports ## Configure Dapr after install
 	$(eval GRAFANA_PASS=$(shell kubectl get secret -n dapr-monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode))
 	# Check that everything is ready...
 	kubectl rollout status deployment/dapr-prom-kube-state-metrics -n dapr-monitoring
